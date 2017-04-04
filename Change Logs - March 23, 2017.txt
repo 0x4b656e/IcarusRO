@@ -1,0 +1,11 @@
+Change Logs - March 23, 2017
+• Changed Flags in prontera to active Castle Flags
+• no @storage command on castle maps and PVP map
+• Es-type skills for soul linkers can now be used on players in PvP
+• Maximum Guild capacity is now reduced to 26
+• Duel time limit removed
+• Added Dress hat udner Quest NPC
+• Added items in Shield/Footgear/Spears/Accessories/Katars/Upperheadgear Shops
+• Card remover does not break any items on failure
+• Move some npcs to new location
+• Added pub to some npcs

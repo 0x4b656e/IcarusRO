@@ -1,0 +1,35 @@
+Changelogs - March 31,2017
+• All items in donation NPC and Quest NPC are tradeable except for Blue/Red Baphomet Horns
+• Added Zodiac Crowns headgear quest headgears
+• Added Zodiac Diadems Headgaer donations
+• Remove castle ownership on non-active castles
+• Fix @storeall command
+• Fix duel commands, invite accept reject leave
+• Fix autokick players on unoccupied castle
+• Green Ale's confusion status removed
+• Following skill buffs are automatically dispelled inside PVP
+- ASSUMPTIO
+- KYRIE ELEISON
+- MAGNIFICAT
+- GLORIA
+- IMPOSITIO MANUS
+- SUFFRAGIUM
+- ASPERSIO
+- ANGELUS
+- PROVIDENCE
+- MINDBREAKER
+- POEM OF BRAGI
+- APPLE OF IDUN
+- ASSASISN CROSS OF SUNSET
+- LOKIS WAIL
+- INVULNERABLE SIEGFRIED
+- DRUM OF BATTLEFIELD
+- INTO THE ABYSS
+- ETERNAL CHAOS
+- THE RING OF NIBELUNGEN
+- HUMMING
+- PLEASE DON'T FORGET ME
+- FORTUNE'S KISS
+- SERVICE FOR YOU
+- GOSPEL BUFFS
+- SOUL LINK STATUS

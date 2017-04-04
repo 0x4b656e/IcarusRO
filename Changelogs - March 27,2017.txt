@@ -1,0 +1,28 @@
+Changelogs - March 27,2017
+• Account character slots increased to 18
+• Manchu-Han Imperial Feast not dispellable on death and Sage skill
+• Elemental Converters Fire/Wind/Water/Earth/Cursed Water now have status icons
+• Fuumashuriken Item Mall now sells Fuumashuriken weapons instead of spell stones
+• Fixed 1 damage on monsters from DeadBranch/BloodyBranch/Boss Summons
+• Fixed Abyssmal Knight Card
+• Fixed Alice Card
+• Added WOE Warper in lighthalzen
+• Added Active Castle flags in lighthalzen town
+• Fixed Gympass npc
+• Costume Enchanter now only lists items from equipped costumes
+• All WOE maps have autokick function when carrying MVP/Mini Boss cards
+• Added @feelreset command for star gladiators to reset Sollar, Lunar, Stellar Perception anytime
+• Added @hatereset command for star gladiators to reset Sollar, Lunar, Stellar Opposition anytime
+• Added @recallmap command for Event GMs
+• All cards now have official script
+• All stats are now official (HP, SP)
+• Casting time now back to official
+• All battleground weapons VALOROUS/BRAVE are back to their official scripts and official zero [0] slots. Will need updates for battleground weapons to finalize their effects.
+• Some "Duterte" weapons are back to their official number of slots
+1) 1149 Flamberge = From [4] to [2]
+2) 1172 Claymore = From [4] to [2]
+3) 1422 Hunting Spear = From [4] to [1]
+4) 1552 Tablet = From [4] to [1]
+5) 1808 Fist = From [4] to [1]
+6) 1908 Guitar = From [4] to [1]
+7) 1220 Gladius = From [4] to [3]

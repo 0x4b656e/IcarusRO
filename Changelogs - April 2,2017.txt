@@ -1,0 +1,4 @@
+Changelogs - April 2,2017
+• Finished adding all Zodiac Headgear Scripts
+• 2 or more Kiel Cards now only works like 1 Kiel Card
+• Added @warp commands for GM Event Managers

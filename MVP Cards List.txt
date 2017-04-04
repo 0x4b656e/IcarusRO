@@ -1,0 +1,85 @@
+Here are the list of cards that are not allowed inside WOE Castles and War Event Maps..
+MVP Cards
+4236 Amon Ra Card
+4359 Assassin Cross Card
+4425 Atroce Card
+4372 White Lady Card
+4147 Baphomet Card
+4145 Berzebub Card
+4168 Dark Lord Card
+4386 Detardeurus Card
+4142 Doppelganger Card
+4134 Dracula Card
+4137 Drake Card
+4123 Eddga Card
+4330 Evil Snake Lord Card
+4441 Fallen Bishop Hibram Card
+4324 Hatii Card
+4408 Gloom Under Night Card
+4128 Golden Thief Bug Card
+4363 High Priest Card
+4365 High Wizard Card
+4430 Ifrit Card
+4263 Samurai Spector Card
+4403 Kiel-D-01 Card
+4318 Stormy Knight Card
+4419 Ktullanux Card
+4376 Lady Tanee Card
+4357 Lord Knight Card
+4276 Lord of The Dead Card
+4146 Maya Card
+4132 Mistress Card
+4131 Moonlight Flower Card
+4143 Orc Hero Card
+4135 Orc Lord Card
+4144 Osiris Card
+4148 Pharaoh Card
+4121 Phreeoni Card
+4342 RSX-0806 Card
+4367 Sniper Card
+4302 Tao Gunka Card
+4399 Memory of Thanatos Card
+4305 Turtle General Card
+4407 Randgris Card
+4374 Vesper Card
+4361 MasterSmith Card
+4352 General Egnigem Cenia Card
+Mini Boss Cards
+4054 Angeling Card
+4241 Arc Angeling Card
+4428 Bow Guardian Card
+4426 Byorgue Card
+4290 Cat O' Nine Tails Card
+4300 Chimera Card
+4169 Dark Illusion Card
+4174 Deviling Card
+4179 Dragon Fly Card
+4266 Eclipse Card
+4250 Executioner Card
+4423 Galion Card
+4354 Gemini-S58 Card
+4047 Ghostring Card
+4163 Gryphon Card
+4384 Hydrolancer Card
+4431 Kasa Card
+4197 Mastering Card
+4198 Maya Purple Card
+4203 Mutant Dragonoid Card
+4207 Mysteltainn Card
+4440 Necromancer Card
+4392 Dame of Sentinel Card
+4238 Owl Baron Card
+4237 Owl Duke Card
+4391 Baroness of Retribution Card
+4429 Salamander Card
+4393 Mistress of Shelter Card
+4406 Skeggiold Card
+4394 Lady Solace Card
+4427 Sword Guardian Card
+4397 Despero of Thanatos Card
+4398 Dolor of Thanatos Card
+4395 Maero of Thanatos Card
+4396 Odium of Thanatos Card
+4254 Ogretooth Card
+4306 Toad Card
+4183 Vagabond Wolf Card
