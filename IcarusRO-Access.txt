@@ -1,0 +1,51 @@
+Configure Server
+
+Hostname: Icarus Ragnarok Online
+NS1 Prefix: icarusro
+NS2 Prefix: icarus-ro
+
+Email: 
+------------------------------------------------
+FOR PUTTY.EXE AND WINSCP
+you can find putty.exe here
+http://the.earth.li/~sgtatham/putty/latest/x86/putty.exe
+
+and winscp download link here
+http://winscp.net/download/winscp550setup.exe
+------------------------------------------------
+VPS LOGIN
+IP/ HOSTNAME: 149.56.134.61
+USER: root
+ROOT-PASS: EWfHhf7R
+PORT: 22
+OS: Centos 5 32bit
+
+SERVER NAME: Icarus Ragnarok Online
+Char Port: 6121
+Login Port: 6900
+Map Port: 5121
+
+------------------------------------------------
+MySQL USER INFO:
+------------------------------------------------
+http://sql.ro-vps.com/
+
+SERVER: 149.56.134.61
+USER: ragnaica
+PASS: CPKtnwt03
+DATABASE: ragnarok
+
+------------------------------------------------
+WEBHOST INFO:
+------------------------------------------------
+LOGIN: www.ro-vps.com:2082
+FTP IP: 192.99.167.170
+USER: ragnaica
+PASS: 04v3Tb5muR
+
+Username/Password
+ / 
+
+------------------------------------------------------
+Flux Control Panel / Ceres Control Panel:
+------------------------------------------------------
