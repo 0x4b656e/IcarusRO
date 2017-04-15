@@ -1,0 +1,31 @@
+Changelogs - April 6,2017
+• Updated Donation NPC/Quest NPC/TCG ShopNPC/V4P NPC Style.
+- Now accepts multiple amounts for non equipment items.
+- No added items on any npc as of today
+• Costume Enchanter from 10% to 30%
+• Freebie NPC now gives the following items
+NOTE: They are all account bound and IP bound except for TCG Cards, Mithril Coins, and Cards
+NOTE2: You can only get this freebies once so choose which account you want to get the freebies for
+NOTE3: All existing accounts before this update can get these items and still account bound and ip bound
+  - 5325 (Robo Eye) 
+  - 5377 (Antique Pipe)
+  - 5801 (Ribbon Of Bride)
+  - 2528 (Wool Scarf) +7 x2
+  - 2424 (Tidal Shoes) +7 x2
+  - 2548 (Neo Muffler) duration 7 days
+  - 2763 (Neo Skull Ring) x2 7 days
+  - 2137 (Neo Valkyrie Shield) 7 days
+  - 674 (Mithril Coin) x 5
+  - 4035 (Hydra Card) x 4
+  - 4092 (Skel Worker Card) x4
+  - 4133 (Daydric Card) x2
+  - 4058 (Thara Frog Card) x2 
+  - 4140 (Knight Of Abyss Card) x4
+  - 12412 (HE Bubble Gum) x10
+  - 12214 (Convex Mirror) x10
+  - 7621 (Token Of Siegfried) x15
+  - 7227 (TCG Card) x350
+  - Selected weapon based on job 7 days
+• TCG and POD trader NPC has been added to All in one room
+• All Mini Boss Cards now back to 3% drop rate
+

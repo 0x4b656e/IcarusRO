@@ -1,0 +1,9 @@
+Changelogs - April 10, 2017
+• Added New Izlude Map
+• Added New prontera map
+• Fixed all item descriptions to match their scripts
+• Fixed all item slot counts to match theri scripts
+• Increased hairstyles from 46 to 98
+• Palette colors updated. 
+--- Color IDs now have a different color than before
+--- Visit the stylist to see the colors
