@@ -1,0 +1,2047 @@
+Codes to turn off
+loginclif.c
+	- line 111
+	- line 196
+	- line 439
+	- line 507
+loginlog.h
+	- line 32
+loginlog.c
+	- line 72
+login.c
+	- line 740
+	- line 876
+loginchrif.c
+	- line 711
+core.h
+	- line 100
+
+-----------------------------------------------------------------------------------------------------------------------------
+Open ../common/socket.h and after:
+
+#include <time.h>
+
+====
+add:
+====
+
+extern bool is_gepard_active;
+extern uint32 allowed_gepard_grf_hash;
+extern uint32 min_allowed_gepard_version;
+
+#define MATRIX_SIZE (2048 + 1)
+#define KEY_SIZE (32 + 1)
+
+#define GEPARD_ID       0x107EB390
+#define UNIQUE_ID_XOR	0x622834A2
+#define SRAND_CONST     0x1E341D35
+#define POS_1_START     0x64
+#define POS_2_START     0x37
+#define RAND_1_START    0x94
+#define RAND_2_START    0xD6
+
+struct gepard_crypt_link
+{
+	unsigned char key[KEY_SIZE];
+	unsigned char pos_1;
+	unsigned char pos_2;
+	unsigned char pos_3;
+};
+
+struct gepard_info_data
+{
+	bool is_init_ack_received;
+	uint32 unique_id;
+	uint32 sync_tick;
+	uint32 grf_hash_number;
+	uint32 gepard_shield_version;
+};
+
+enum gepard_server_types
+{
+	GEPARD_MAP      = 0xAAAA,
+	GEPARD_LOGIN    = 0xBBBB,
+};
+
+enum gepard_info_type
+{
+	GEPARD_INFO_BANNED,
+	GEPARD_INFO_OLD_VERSION,
+	GEPARD_INFO_DUAL_LOGIN,
+	GEPARD_INFO_CORUPTED_UID,
+	GEPARD_INFO_WRONG_LICENSE_ID,
+	GEPARD_WRONG_GRF_HASH,
+};
+
+enum gepard_packets
+{
+	CS_LOGIN_PACKET        = 0x0064,
+	CS_WHISPER_TO          = 0x0096,
+	CS_WALK_TO_XY          = 0x0437,
+	CS_USE_SKILL_TO_ID     = 0x083c,
+	CS_USE_SKILL_TO_POS    = 0x0438,
+
+	CS_LOGIN_PACKET_1      = 0x0277,
+	CS_LOGIN_PACKET_2      = 0x02b0,
+	CS_LOGIN_PACKET_3      = 0x01dd,
+	CS_LOGIN_PACKET_4      = 0x01fa,
+	CS_LOGIN_PACKET_5      = 0x027c,
+	CS_LOGIN_PACKET_6      = 0x0825,
+
+	SC_SET_UNIT_WALKING    = 0x0856,
+	SC_SET_UNIT_IDLE       = 0x0857,
+	SC_WHISPER_FROM        = 0x0097,
+	SC_WHISPER_SEND_ACK    = 0x0098,
+
+	CS_GEPARD_SYNC         = 0x2000,
+	CS_GEPARD_INIT_ACK     = 0x1002,
+
+	SC_GEPARD_INIT         = 0xABCD,
+	SC_GEPARD_INFO         = 0xBCDE,
+};
+
+enum gepard_internal_packets
+{
+	GEPARD_M2C_BLOCK_REQ   = 0x5000,
+	GEPARD_C2M_BLOCK_ACK   = 0x5001,
+	GEPARD_M2C_UNBLOCK_REQ = 0x5002,
+	GEPARD_C2M_UNBLOCK_ACK = 0x5003,
+};
+
+#define GEPARD_REASON_LENGTH 99
+#define GEPARD_TIME_STR_LENGTH 24
+#define GEPARD_RESULT_STR_LENGTH 100
+
+void gepard_config_read();
+void gepard_init(int fd, uint16 packet_id);
+void gepard_send_info(int fd, unsigned short info_type, char* message);
+bool gepard_process_packet(int fd, uint8* packet_data, uint32 packet_size, struct gepard_crypt_link* link);
+void gepard_enc_dec(uint8* in_data, uint8* out_data, unsigned int data_size, struct gepard_crypt_link* link);
+
+====
+after:
+====
+
+	void* session_data; // stores application-specific data related to the session
+
+====
+add:
+====
+
+	// Gepard Shield
+	struct gepard_info_data gepard_info;
+	struct gepard_crypt_link send_crypt;
+	struct gepard_crypt_link recv_crypt;
+	struct gepard_crypt_link sync_crypt;
+	// Gepard Shield
+
+-----------------------------------------------------------------------------------------------------------------------------
+Open ../common/socket.c and in the function "WFIFOSET" !!! before !!! :
+
+	s->wdata_size += len;
+
+====
+add:
+====
+
+	// Gepard Shield
+	if (is_gepard_active == true)
+	{
+		gepard_process_packet(fd, s->wdata + s->wdata_size, len, &s->send_crypt);
+	}
+	// Gepard Shield
+
+=======================
+in the function socket_init after:
+=======================
+
+	socket_config_read(SOCKET_CONF_FILENAME);
+
+====
+add:
+====
+
+	// Gepard Shield
+	gepard_config_read();
+	// Gepard Shield
+
+====================================
+add to the end of the file ../common/socket.c add:
+====================================
+
+bool is_gepard_active;
+uint32 gepard_rand_seed;
+uint32 allowed_gepard_grf_hash;
+uint32 min_allowed_gepard_version;
+
+const unsigned char* shield_matrix = (const unsigned char*)
+
+	"\x38\xdb\xbb\x91\xeb\x50\x75\xcd\x5f\xcc\x94\x6d\xe2\x86\xc5\x3b"
+	"\xe7\x8c\x73\xee\x97\x92\xb5\xec\x84\x6d\x2a\x4d\xd8\x96\xb3\x2c"
+	"\x26\xd2\x62\x86\xb7\x42\x0b\x7a\x13\x76\x56\xb6\x80\xe2\xc1\xfb"
+	"\xc7\x38\x5d\x79\x05\xfc\x4b\x5c\xae\x82\xbd\xe3\xc0\x76\x84\xd3"
+	"\x23\x3c\x5a\x0d\xbc\xce\x8a\xb2\x46\x4a\xa8\x9e\xd1\x6d\xd7\x02"
+	"\xa1\xa4\xf9\x81\xb2\x7a\xb2\x2d\x21\x76\x94\x10\xca\xc7\xf1\xc7"
+	"\xd0\xcf\x1b\x5f\xe4\x4f\x0b\xd5\x76\x6b\xc5\x13\x31\x38\x72\xac"
+	"\x71\x7e\xe9\xc5\x86\x75\x4d\xe2\xf3\x9c\x54\x22\x8a\x70\xf0\xcb"
+	"\x86\xa9\x70\x3d\x13\xc0\xb4\x87\x57\xdc\x3f\x83\x6b\xf8\x10\xa2"
+	"\x66\x52\xa3\x87\xdc\x7e\x0d\x42\xf5\x2c\x77\xe6\x08\x77\x0a\xe5"
+	"\xcc\x4b\xf7\xeb\x9b\x44\xc4\xb0\xd0\x0a\x77\xe5\xc4\x09\xc2\xcc"
+	"\xe6\x92\xed\x8c\x02\x46\xf9\x57\x27\x42\xcb\xfa\x41\x88\x57\x62"
+	"\x64\x99\xa3\x32\x47\x1f\x8d\x7c\x7f\xbf\xa6\x32\xf0\xe6\xb0\x57"
+	"\x8a\x96\xe5\x9e\x3b\xa4\x2f\x6f\x3e\xdb\x71\xf6\x24\x73\x8c\x4f"
+	"\xbf\x5a\xbc\x5b\x54\xb8\x72\xdc\xb2\x2f\xd8\xe5\x9b\xb3\x14\xb3"
+	"\x1e\x98\x7d\x0b\xbf\x15\x5b\x1c\x25\x5e\x5f\x1a\x16\x2c\xea\x01"
+	"\x83\x3d\xdb\x38\xf1\x1f\xee\x83\x6b\x6d\xed\x22\xe1\x36\xbb\x98"
+	"\x22\xb6\xf7\x24\xb8\x36\xc2\xb4\xf6\x8f\x60\xa5\x6e\xca\x4c\x8d"
+	"\x0c\x4f\xf0\x9a\x47\x83\x8e\xea\x64\xf4\x98\x86\x56\xd7\x89\xfb"
+	"\xca\x73\xef\xbe\xc6\x4a\xbb\xd1\x08\x1c\x8f\xe1\xf8\x0c\x9c\xd0"
+	"\xe7\x08\x3e\xdb\x6b\x39\x73\x4d\x07\xa1\xe1\x82\xfe\x27\x74\x1f"
+	"\x80\x35\x50\x35\xfc\x39\x32\xd1\x5d\x12\x61\x18\x75\xcd\x5b\x6a"
+	"\x57\x3d\xda\x57\x6c\x3b\x53\xac\x73\x36\x26\x7f\x55\xd5\x06\x22"
+	"\xe0\x46\x5b\xe4\xe0\x8c\x24\xd8\xae\x66\x1b\x97\x19\x95\x1f\x3c"
+	"\x53\xad\xb0\x6b\xcb\xa4\x75\xcc\xfd\x57\x13\x8e\xc8\xb8\x5c\x64"
+	"\x3b\xd5\xa4\x2f\xee\xf4\x27\x4b\x6b\xee\xd4\xb2\x8b\x8b\x8d\x6e"
+	"\x86\x78\x7f\x7d\x7c\xb7\x3a\x34\x2d\x10\x2d\x44\xb8\xca\x2a\x56"
+	"\x95\xf4\x16\x7a\x96\x44\x60\x53\x34\x68\x7d\xc1\xe7\xf9\xe3\x6b"
+	"\xcc\x21\xd9\xf3\x69\xd8\x10\x31\x3d\xca\x4d\x39\x7d\xaa\xb5\x23"
+	"\xa5\x1a\x6b\xae\xb8\x70\x8c\xdf\xde\xf1\x57\x1c\x3f\x52\xf2\xe2"
+	"\x3b\x12\xa6\x3b\x6f\x11\x7d\xd1\x9c\xda\x9d\x0a\xe0\x98\x59\x5a"
+	"\xda\xa1\xb6\xbb\x2e\x96\xf9\x23\xf4\x0f\x77\x23\x95\x27\x1f\xc8"
+	"\x17\x96\xa0\xc1\x5f\x0c\x1c\xeb\xef\x76\x1f\xd7\x9f\xfa\x82\xd2"
+	"\x55\x47\xda\x12\x41\x74\x0d\x92\xb3\x26\x48\x39\xe1\xb1\xde\x52"
+	"\x5c\x5f\x56\xfc\xfd\x9c\x19\x96\x8f\xb4\xa5\xc7\xec\x5c\x35\x24"
+	"\x67\x30\x12\x28\x32\xec\x3c\xe7\x8d\x83\x86\xc3\x12\x4d\x41\xfa"
+	"\xb7\x80\x2a\xe2\x84\xb6\x34\x2f\x04\x15\xd8\x80\x6e\x6a\x06\x2d"
+	"\x1c\xdf\x69\xf5\x32\x86\x12\x23\x26\x56\x44\xae\x84\xf9\xe3\x03"
+	"\x8c\x72\xd3\x70\x1f\xf2\xc5\x55\x8f\xf6\x34\xb0\xbe\x75\x20\x8d"
+	"\xaf\x43\xbf\xfa\xe8\xec\xae\x04\x58\x32\xe7\x68\x0d\x5a\xfc\xed"
+	"\xf0\x92\x5d\x25\x70\x10\xb3\x6c\x25\x22\x86\x08\x6b\xf5\xc1\xab"
+	"\x90\xa6\x4b\x37\x71\xee\xc5\x93\xb2\x0f\x2b\x62\x74\xb8\xd2\x81"
+	"\x30\x9f\x26\x83\x0d\xeb\x7d\x9c\xea\xbe\x75\x3a\x75\x84\x3d\x30"
+	"\x65\x3e\x16\xb1\x5b\x7f\x9e\x99\xf4\x46\x1c\x14\x77\xfe\x44\xc9"
+	"\xc8\xbe\xe0\x94\x7d\x8d\xb2\xd3\x3e\xd9\x78\x82\x55\x5f\xf7\x87"
+	"\x85\x20\x7a\x74\x29\xb4\x14\x24\x15\x19\x9a\x78\x45\x3e\xbf\x15"
+	"\xeb\x78\x93\xe2\x3e\x1d\xfa\xbf\xad\x64\x59\x9b\xf1\xe7\xec\x63"
+	"\xfe\xc5\xa9\x0b\xd1\xc9\x94\x07\x3c\x2b\x5e\x8e\x82\xa9\xc9\x77"
+	"\x82\x3a\x19\xfe\x41\x68\x8d\x57\x7d\xb5\x3a\x46\xac\x25\x2a\x3a"
+	"\x90\x8e\x2a\x88\x41\x1f\x25\x58\xc9\x02\xf0\x57\x46\x9a\x7b\xc7"
+	"\x25\x52\xa1\x7b\x6c\xde\xb9\x50\xa4\x06\x8e\xc7\x54\xbf\xd2\xc2"
+	"\xaf\xbb\xd3\x82\x55\xb4\xdb\x70\x4d\x0b\xaf\x5b\x9c\x0b\x80\x21"
+	"\xa2\xf6\xae\x71\x96\x17\x5e\x27\xcd\xf2\x9c\xe8\x31\x85\x9c\x7c"
+	"\x04\xf4\x52\x92\xe1\xb4\x64\x6f\x8c\x93\xcc\x24\x85\x1b\x99\xe2"
+	"\xfd\xbe\x97\xfb\x0e\x48\x71\x9d\x59\x7e\x01\x75\x7c\xe8\x52\x27"
+	"\xeb\xc3\x27\x56\xac\xe6\xfd\xb5\x02\xd1\xcd\xc0\x76\x90\x99\xaf"
+	"\xed\x28\x06\xb9\x94\xd0\x7d\xb6\xdb\x8c\x2c\xbe\x64\x01\x50\xc7"
+	"\xf5\x96\x28\x6f\x72\x3d\xfa\xea\xda\xda\x0c\x44\x56\x50\x6b\x6e"
+	"\xdb\x12\x7b\xce\x5d\xaf\x9f\x3a\x1b\xe6\x61\x19\x0b\x85\x8a\x28"
+	"\xe8\x41\xfb\x84\xe0\xc8\xc3\xf7\xf7\x2a\x35\x44\x01\x68\x88\xcb"
+	"\xe7\x42\x47\xe3\x92\x8c\x87\xb4\x94\xbb\xb7\x5d\x06\xd5\x07\xd5"
+	"\xb9\xf7\x22\x3d\x9c\x3f\xd4\x0c\xee\xa0\x4c\x5c\x47\x89\x03\xb5"
+	"\x63\x5f\x92\x24\xd0\x2e\x7b\x77\xf4\x9c\x9c\xe7\xdf\xf2\x60\xa0"
+	"\x98\x56\xe8\xc7\x3b\x7e\x3b\x99\x8a\x01\x26\x2a\x6c\x06\x7d\xde"
+	"\x55\xf5\x56\x3e\x2a\x82\xd4\x14\x22\xfd\x4e\x1a\x96\x04\x43\x1f"
+	"\xe4\x5b\x76\xd6\xc7\x04\x1a\x55\x47\x72\xeb\xd0\xa8\xd4\xb2\xbf"
+	"\x77\x78\x63\x67\xa2\x99\x22\x65\xb3\x3a\xe0\x58\x1c\xd1\x74\x29"
+	"\x31\xe7\x43\x20\x42\x72\x2b\xba\xd7\x22\x9d\xf7\xa8\x14\xec\x93"
+	"\xb9\xba\x5b\x57\x33\x29\x22\x06\xf2\x8d\xbc\x8a\xd5\xc9\x48\xdc"
+	"\xc8\x44\x1c\xdb\x9b\x11\xb6\x07\x20\x99\x0b\x49\x8b\x03\x0d\xd7"
+	"\x3d\xf2\xb4\xc7\xc9\x89\xe8\x56\xe1\x9a\x9c\x9d\x1e\x7f\xa9\x1b"
+	"\xa7\x19\x22\x49\xbd\xca\x9f\xbc\x3a\x13\x5a\xf2\x65\x05\x87\x50"
+	"\x5a\xbf\x3b\xf8\x45\xb7\xe3\xfa\x32\x66\x12\x83\xc3\x28\x97\x09"
+	"\x7c\xf4\xc8\xa8\x82\xad\x55\x22\x73\xa3\x06\xa8\x3e\xa2\xe4\x06"
+	"\x19\x20\x8d\xb0\x7d\xd4\x2f\xdb\x4d\x59\xfe\xae\x09\x1d\xa3\x10"
+	"\xad\xcb\x5a\x40\xb8\xee\xe1\x41\x4e\x65\x5b\x21\x93\x06\xbf\x42"
+	"\x3b\x79\x1e\x33\x3a\xa5\x1b\xa4\xcd\x42\x1c\x1a\xa1\xdc\xf2\xdc"
+	"\xd2\x72\x72\xda\xa2\xe2\x5e\x67\x7f\x59\x7b\x16\x53\x82\x4b\x93"
+	"\xaf\x94\xb2\xce\xb8\x14\x0e\x46\x02\xd1\x75\x41\x3a\x09\x41\xdf"
+	"\xb9\x24\x83\x44\x78\x05\x7c\xa8\xef\x62\x5c\x46\xe3\x88\x49\xce"
+	"\x9f\x1c\x67\x52\x29\x2b\xfe\x74\xef\x1e\x69\xa3\xee\x67\xdc\xd0"
+	"\x61\xfe\xd0\x4e\xe4\x75\x7d\x5a\x3f\x47\x49\xf5\x1b\xb1\x13\x0a"
+	"\x64\xa2\x2b\x12\xb0\x1d\x7d\x27\xcc\x9f\x2e\xc7\xd2\x62\x28\xa5"
+	"\xfe\x85\xf2\x4f\x07\xf5\xb9\x95\x3d\xb4\xde\xe8\xc5\xb9\x15\x21"
+	"\x8c\x9a\xbf\x64\xe9\xbd\x2a\x9b\x05\xb3\xc8\x36\x6c\x08\x19\x9e"
+	"\xf9\x9d\x57\xa1\x71\xed\x1c\x3a\xef\xb8\x0f\xec\xa3\x22\x4e\x33"
+	"\x5b\xdd\x3d\x25\x60\x87\xba\xd0\x38\x9c\x17\x7a\x34\x09\xb9\xba"
+	"\x71\x12\x40\xa1\x2c\x67\x24\xe8\x11\xc7\x9e\x4e\x69\x0a\x55\xa2"
+	"\xc5\x27\x8c\xb4\x15\x95\x77\x8a\x3a\x7f\xc7\xa6\x1a\x3c\xa7\x3f"
+	"\xb3\x91\x3f\xb1\x31\x13\x64\x88\x8d\x39\xa9\x60\xbe\x7d\x50\x97"
+	"\xf8\x19\xee\xf6\xfd\xaa\xbd\xd1\x91\xe5\x5f\x4d\xfd\x1c\x96\x36"
+	"\x46\x2e\xbf\xb7\xef\xc2\x06\xc2\x87\xc6\x1c\x7a\x3f\xa8\xfb\xfb"
+	"\xd0\x37\xf4\x52\x03\xaa\x80\x73\xfa\x3c\xb5\x09\x37\xc4\xcb\xec"
+	"\x60\x5f\x7d\x9c\xcb\x6c\x42\x07\x54\x12\x38\xf6\x7c\x78\xa9\x22"
+	"\x61\xe8\x86\xb3\x03\x9d\xc2\xfd\x65\xd4\xf4\x75\x90\xf9\xa2\x73"
+	"\x70\x7d\x09\xcd\x1b\xac\xe8\x86\x7d\x1e\x93\xb3\x78\x83\x3d\x17"
+	"\x70\xfb\xdc\x89\x4c\x32\x1f\x47\x74\xe5\x9e\xb3\xc5\x21\x08\x20"
+	"\x96\xc8\x47\xbd\x29\xc1\x5e\xb6\x40\x51\x97\x94\x2c\x22\xad\x77"
+	"\xf9\x9f\x89\xc8\xa6\x38\xc1\xe6\x7f\x06\x06\x67\x0b\xc2\x7f\x8a"
+	"\xa5\xe1\xf1\xe1\xb4\x8e\x97\x53\x0e\x77\x04\xfe\x84\x4b\x89\x9b"
+	"\xaa\xe8\xec\xe7\x49\x25\xed\xb7\x92\x36\xd2\x3c\x05\x8e\x9e\x91"
+	"\x28\x51\x15\xb3\xf1\x99\xa2\x59\x8d\x40\x68\xde\xde\x64\xee\x44"
+	"\xe5\xcf\xbe\xe3\x62\x91\x76\xda\x6c\x54\x01\xda\x4f\xd5\x8f\xd4"
+	"\x5a\x7f\x90\x31\x86\x0e\x9c\x8b\x17\xbe\xab\xa1\x13\xee\x13\x74"
+	"\x41\xb1\x0a\xbb\x92\x3a\xc6\xb4\x01\x29\x5f\xf5\x76\x8e\x11\xba"
+	"\x2b\x3c\x1b\x5b\x0f\x3b\x3a\xee\x39\x6b\x87\xba\x65\xb3\x3d\x72"
+	"\x09\xcd\xad\x72\xed\x01\x5b\xed\xf7\xdb\x92\xc2\x7c\xd1\x75\x6c"
+	"\xc0\xb9\x3c\xb8\x97\x13\xc1\x4f\xb3\x9f\x88\x21\x94\x1e\x4c\x4a"
+	"\xba\xc9\xdb\x90\x7e\xe8\x45\xf0\x2d\x7a\x13\x79\x57\xde\x22\x56"
+	"\xf2\x0e\xd0\xd2\xa6\xae\x8f\xba\xfd\x1c\x92\xce\x4f\xbd\x2e\x4a"
+	"\x88\xac\x1b\x21\x41\x9c\x2a\x6f\xae\x76\xab\x55\xf2\x16\x12\x29"
+	"\xce\xb3\x0a\xb6\x32\x46\x11\x02\x41\x05\x59\xc2\xba\xc6\xe7\x86"
+	"\x5a\x63\x46\x34\xa6\x68\x42\xdc\x42\x24\x7c\x19\x2b\xfe\x53\xdb"
+	"\x94\x88\x6b\x75\x24\x39\x4b\x3b\x59\xdf\x68\x7e\x6c\x11\x12\xd5"
+	"\xc8\xbf\x0e\x5d\x94\xbc\x5c\xf1\xdc\xbe\x78\x08\xd3\x42\x09\xa5"
+	"\x38\xcf\x50\x27\x5c\x8c\xd4\xc1\xd9\x1a\x9c\x8a\xf3\x98\x58\x52"
+	"\xa3\x73\xf1\x34\xe3\xae\xd8\xa9\xab\xe3\x69\xea\xb1\x2e\xe8\x85"
+	"\x63\xaf\xe2\xe1\x2d\x64\xd9\xb3\x88\x80\xa7\xef\x4e\x7d\xfb\xdc"
+	"\xed\x99\xcb\xd4\xe0\x78\x2d\xc5\x0f\x13\x68\x8f\x7e\xb5\x3d\x3b"
+	"\xf0\xb1\x25\x47\xde\x0e\x98\x72\x5c\x49\x0f\xbe\x71\x04\xcf\x17"
+	"\xdc\xac\xc3\xdd\xcc\xf5\x63\xc9\x98\x32\x67\xc4\x68\x6c\x63\xcb"
+	"\xf2\xc5\xeb\x75\x2a\x77\xe4\x25\x05\x8a\xae\x09\x44\x92\xbd\xe7"
+	"\x5b\x8d\x5b\x73\xdd\xa6\x17\xfc\x90\x8b\xa8\x61\x13\x0e\x4e\x01"
+	"\x2e\xbc\xdf\x15\xc1\x32\x25\xb5\xe2\xbe\x31\xe4\x23\x37\xc0\x7d"
+	"\x88\x01\x63\x3e\xbb\x32\x7a\xec\x72\x4b\xc5\x3b\x13\x78\x05\xe8"
+	"\x9a\x4f\xfc\x4d\x45\x77\x55\xd0\x0d\xc6\x9a\xec\x5e\x9f\x69\xc3"
+	"\x36\xaf\x03\xe7\x83\xdf\x53\xe8\x6e\x05\xa8\x32\xf1\x2d\x21\xd2"
+	"\xe3\x15\x16\xcc\xcd\xa0\x05\xe9\xcb\xe5\xbf\x41\xb9\xa1\x5b\x6e";
+
+void gepard_config_read()
+{
+	char* conf_name = "conf/gepard_shield.conf";
+	char line[1024], w1[1024], w2[1024];
+
+	FILE* fp = fopen(conf_name, "r");
+
+	is_gepard_active = false;
+
+	if (fp == NULL) 
+	{
+		ShowError("Gepard configuration file (%s) not found. Shield disabled.\n", conf_name);
+		return;
+	}
+
+	while(fgets(line, sizeof(line), fp))
+	{
+		if (line[0] == '/' && line[1] == '/')
+			continue;
+
+		if (sscanf(line, "%[^:]: %[^\r\n]", w1, w2) < 2)
+			continue;
+
+		if (!strcmpi(w1, "gepard_shield_enabled"))
+		{
+			is_gepard_active = (bool)config_switch(w2);
+		}
+	}
+
+	fclose(fp);
+
+	conf_name = "conf/gepard_version.txt";
+
+	if ((fp = fopen(conf_name, "r")) == NULL)
+	{
+		min_allowed_gepard_version = 0;
+		ShowError("Gepard version file (%s) not found.\n", conf_name);
+		return;
+	}
+
+	fscanf(fp, "%u", &min_allowed_gepard_version);
+
+	fclose(fp);
+
+	conf_name = "conf/gepard_grf_hash.txt";
+
+	if ((fp = fopen(conf_name, "r")) == NULL)
+	{
+		allowed_gepard_grf_hash = 0;
+		ShowError("Gepard GRF hash file (%s) not found.\n", conf_name);
+		return;
+	}
+
+	fscanf(fp, "%u", &allowed_gepard_grf_hash);
+
+	fclose(fp);
+}
+
+bool gepard_process_packet(int fd, uint8* packet_data, uint32 packet_size, struct gepard_crypt_link* link)
+{
+	uint16 packet_id = RBUFW(packet_data, 0);
+
+	switch (packet_id)
+	{
+		case CS_GEPARD_SYNC:
+		{
+			uint32 control_value;
+
+			if (RFIFOREST(fd) < 6)
+			{
+				return true;
+			}
+
+			gepard_enc_dec(packet_data + 2, packet_data + 2, 4, &session[fd]->sync_crypt);
+
+			control_value = RFIFOL(fd, 2);
+
+			if (control_value == 0xDDCCBBAA)
+			{
+				session[fd]->gepard_info.sync_tick = gettick();
+			}
+
+			RFIFOSKIP(fd, 6);
+
+			return true;
+		}
+		break;
+
+		case CS_LOGIN_PACKET_1:
+		case CS_LOGIN_PACKET_2:
+		case CS_LOGIN_PACKET_3:
+		case CS_LOGIN_PACKET_4:
+		case CS_LOGIN_PACKET_5:
+		case CS_LOGIN_PACKET_6:
+		{
+			set_eof(fd);
+			return true;
+		}
+		break;
+
+		case CS_LOGIN_PACKET:
+		{
+			if (RFIFOREST(fd) < 55)
+			{
+				return false;
+			}
+
+			if (session[fd]->gepard_info.is_init_ack_received == false)
+			{
+				RFIFOSKIP(fd, RFIFOREST(fd));
+				gepard_init(fd, GEPARD_LOGIN);	
+				return true;
+			}
+
+			gepard_enc_dec(packet_data + 2, packet_data + 2, RFIFOREST(fd) - 2, link);
+		}
+		break;
+
+		case CS_WHISPER_TO:
+		{
+			if (RFIFOREST(fd) < 4 || RFIFOREST(fd) < (packet_size = RBUFW(packet_data, 2)) || packet_size < 4)
+			{
+				return true;
+			}
+
+			gepard_enc_dec(packet_data + 4, packet_data + 4, packet_size - 4, link);
+		}
+		break;
+
+		case CS_WALK_TO_XY:
+		case CS_USE_SKILL_TO_ID:
+		case CS_USE_SKILL_TO_POS:
+		{
+			if (packet_size < 2 || RFIFOREST(fd) < packet_size)
+			{
+				return true;
+			}
+
+			gepard_enc_dec(packet_data + 2, packet_data + 2, packet_size - 2, link);
+		}
+		break;
+
+		case SC_WHISPER_FROM:
+		case SC_SET_UNIT_IDLE:
+		case SC_SET_UNIT_WALKING:
+		{
+			if (&session[fd]->send_crypt != link)
+			{
+				return true;
+			}
+
+			gepard_enc_dec(packet_data + 4, packet_data + 4, packet_size - 4, link);
+		}
+		break;
+
+		case CS_GEPARD_INIT_ACK:
+		{
+			uint32 grf_hash_number;
+			uint32 unique_id, unique_id_, shield_ver;
+
+			if (RFIFOREST(fd) < 4 || RFIFOREST(fd) < (packet_size = RFIFOW(fd, 2)))
+			{
+				return true;
+			}
+
+			if (packet_size < 24)
+			{
+				ShowWarning("gepard_process_packet: invalid size of CS_GEPARD_INIT_ACK packet: %u\n", packet_size);
+				set_eof(fd);
+				return true;
+			}
+
+			gepard_enc_dec(packet_data + 4, packet_data + 4, packet_size - 4, link);
+
+			unique_id  = RFIFOL(fd, 4);
+			shield_ver = RFIFOL(fd, 8);
+			unique_id_ = RFIFOL(fd, 12) ^ UNIQUE_ID_XOR;
+			grf_hash_number = RFIFOL(fd, 20);
+
+			RFIFOSKIP(fd, packet_size);
+
+			if (!unique_id || !unique_id_ || unique_id != unique_id_)
+			{
+				WFIFOHEAD(fd, 6);
+				WFIFOW(fd, 0) = SC_GEPARD_INFO;
+				WFIFOL(fd, 2) = 3;
+				WFIFOSET(fd, 6);
+				set_eof(fd);
+			}
+
+			session[fd]->gepard_info.is_init_ack_received = true;
+			session[fd]->gepard_info.unique_id = unique_id;
+			session[fd]->gepard_info.gepard_shield_version = shield_ver;
+			session[fd]->gepard_info.grf_hash_number = grf_hash_number;
+
+			return true;
+		}
+		break;
+	}
+
+	return false;
+}
+
+inline void gepard_srand(unsigned int seed)
+{
+	gepard_rand_seed = seed;
+}
+
+inline unsigned int gepard_rand()
+{
+	return (((gepard_rand_seed = gepard_rand_seed * 214013L + 2531011L) >> 16) & 0x7fff);
+}
+
+void gepard_session_init(int fd, unsigned int recv_key, unsigned int send_key, unsigned int sync_key)
+{
+	uint32 i;
+	uint8 random_1 = RAND_1_START;
+	uint8 random_2 = RAND_2_START;
+
+	session[fd]->recv_crypt.pos_1 = session[fd]->send_crypt.pos_1 = session[fd]->sync_crypt.pos_1 = POS_1_START;
+	session[fd]->recv_crypt.pos_2 = session[fd]->send_crypt.pos_2 = session[fd]->sync_crypt.pos_2 = POS_2_START;
+	session[fd]->recv_crypt.pos_3 = session[fd]->send_crypt.pos_3 = session[fd]->sync_crypt.pos_3 = 0;
+
+	gepard_srand(recv_key ^ SRAND_CONST);
+
+	for (i = 0; i < (KEY_SIZE-1); ++i)
+	{
+		random_1 ^= shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		random_1 += (8 * random_2) + 5;
+		random_2 ^= shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		random_2 += (6 * random_1) - 2;
+		random_1 += random_2 ^ shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		session[fd]->recv_crypt.key[i] = random_1;
+	}
+
+	random_1 = RAND_1_START;
+	random_2 = RAND_2_START;	
+	gepard_srand(send_key | SRAND_CONST);
+
+	for (i = 0; i < (KEY_SIZE-1); ++i)
+	{
+		random_1 ^= shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		random_1 += (7 * random_2) - 2;
+		random_2 ^= shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		random_2 -= (2 * random_1) + 9;
+		random_1 += random_2 ^ shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		session[fd]->send_crypt.key[i] = random_1;
+	}
+
+	random_1 = RAND_1_START;
+	random_2 = RAND_2_START;	
+	gepard_srand(sync_key | SRAND_CONST);
+
+	for (i = 0; i < (KEY_SIZE-1); ++i)
+	{
+		random_1 ^= shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		random_1 -= (4 * random_2) - 9;
+		random_2 ^= shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		random_2 += (3 * random_1) - 5;
+		random_1 += random_2 ^ shield_matrix[gepard_rand() % (MATRIX_SIZE-1)];
+		session[fd]->sync_crypt.key[i] = random_1;
+	}
+}
+
+void gepard_init(int fd, uint16 server_type)
+{
+	const uint16 init_packet_size = 20;
+	uint16 recv_key = (gepard_rand() % 0xFFFF);
+	uint16 send_key = (gepard_rand() % 0xFFFF);
+	uint16 sync_key = (gepard_rand() % 0xFFFF);
+
+	gepard_srand((unsigned)time(NULL) ^ clock());
+
+	WFIFOHEAD(fd, init_packet_size);
+	WFIFOW(fd, 0) = SC_GEPARD_INIT;
+	WFIFOW(fd, 2) = init_packet_size;
+	WFIFOW(fd, 4) = recv_key;
+	WFIFOW(fd, 6) = send_key;
+	WFIFOW(fd, 8) = server_type;
+	WFIFOL(fd, 10) = GEPARD_ID;
+	WFIFOL(fd, 14) = min_allowed_gepard_version;
+	WFIFOW(fd, 18) = sync_key;
+	WFIFOSET(fd, init_packet_size);
+
+	gepard_session_init(fd, recv_key, send_key, sync_key);
+}
+
+void gepard_enc_dec(uint8* in_data, uint8* out_data, uint32 data_size, struct gepard_crypt_link* link)
+{	
+	uint32 i;
+
+	for(i = 0; i < data_size; ++i)
+	{
+		link->pos_1 += link->key[link->pos_3 % (KEY_SIZE-1)];
+		link->pos_2 += (46 + link->pos_1) / 5;
+		link->key[link->pos_2 % (KEY_SIZE-1)] ^= link->pos_1;
+		link->pos_1 += (link->pos_2 + link->pos_3) * 11;
+		link->key[link->pos_3 % (KEY_SIZE-1)] ^= link->pos_1;
+		out_data[i] = in_data[i] ^ link->pos_1;
+		link->pos_1 -= 39;
+		link->pos_2 -= data_size % 0xFF;
+		link->pos_3++;
+	}
+}
+
+void gepard_send_info(int fd, unsigned short info_type, char* message)
+{
+	int message_len = strlen(message) + 1;
+	int packet_len = 2 + 2 + 2 + message_len;
+
+	WFIFOHEAD(fd, packet_len);
+	WFIFOW(fd, 0) = SC_GEPARD_INFO;
+	WFIFOW(fd, 2) = packet_len;
+	WFIFOW(fd, 4) = info_type;
+	safestrncpy((char*)WFIFOP(fd, 6), message, message_len);
+	WFIFOSET(fd, packet_len);
+}
+
+-----------------------------------------------------------------------------------------------------------------------------
+Open ../src/login/loginclif.c and in the function "logclif_parse" before:
+
+		switch( command )
+
+====
+add:
+====
+
+		// Gepard Shield by Functor
+		if (is_gepard_active == true)
+		{
+			bool is_processed = gepard_process_packet(fd, session[fd]->rdata + session[fd]->rdata_pos, 0, &session[fd]->recv_crypt);
+
+			if (is_processed == true)
+			{
+				if (command == CS_GEPARD_INIT_ACK)
+				{
+					gepard_check_unique_id(fd, session[fd]->gepard_info.unique_id);
+				}
+
+				return 0;
+			}
+		}
+		// Gepard Shield by Functor
+
+===========================
+In the function logclif_auth_ok change:
+===========================
+
+	login_log(ip, sd->userid, 100, "login ok");
+
+===
+to:
+===
+
+
+	gepard_update_last_unique_id(sd->account_id, session[fd]->gepard_info.unique_id);
+	login_log(fd, ip, sd->userid, 100, "login ok");
+
+==============================
+In the function logclif_auth_failed  change:
+==============================
+
+		if(result >= 0 && result <= 15)
+		    login_log(ip, sd->userid, result, msg_txt(result));
+		else if(result >= 99 && result <= 104)
+		    login_log(ip, sd->userid, result, msg_txt(result-83)); //-83 offset
+		else
+		    login_log(ip, sd->userid, result, msg_txt(22)); //unknow error
+
+===
+to:
+===
+
+		if(result >= 0 && result <= 15)
+		    login_log(fd, ip, sd->userid, result, msg_txt(result));
+		else if(result >= 99 && result <= 104)
+		    login_log(fd, ip, sd->userid, result, msg_txt(result-83)); //-83 offset
+		else
+		    login_log(fd, ip, sd->userid, result, msg_txt(22)); //unknow error
+
+=======================================
+In the function  logclif_parse_reqcharconnec  change:
+=======================================
+
+login_log(session[fd]->client_addr, sd->userid, 100, message);
+
+===
+to:
+===
+
+login_log(fd, session[fd]->client_addr, sd->userid, 100, message);
+
+===========================
+In the function  logclif_parse  change:
+===========================
+
+login_log(ipl, "unknown", -3, "ip banned");
+
+===
+to:
+===
+
+login_log(fd, ipl, "unknown", -3, "ip banned");
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Open ../src/login/loginlog.h and change:
+
+void login_log(uint32 ip, const char* username, int rcode, const char* message);
+
+===
+to:
+===
+
+void login_log(int fd, uint32 ip, const char* username, int rcode, const char* message);
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Open ../src/login/loginlog.c and change whole function  login_log to:
+
+void login_log(int fd, uint32 ip, const char* username, int rcode, const char* message) {
+	char esc_username[NAME_LENGTH*2+1];
+	char esc_message[255*2+1];
+	unsigned int unique_id = 0;
+	int retcode;
+
+	if( !enabled )
+		return;
+
+	if (fd != 0)
+	{
+		unique_id = session[fd]->gepard_info.unique_id;
+	}
+
+	Sql_EscapeStringLen(sql_handle, esc_username, username, strnlen(username, NAME_LENGTH));
+	Sql_EscapeStringLen(sql_handle, esc_message, message, strnlen(message, 255));
+
+	retcode = Sql_Query(sql_handle,
+		"INSERT INTO `%s`(`time`,`ip`,`user`,`rcode`, `unique_id`,`log`) VALUES (NOW(), '%s', '%s', '%d', '%u', '%s')",
+		log_login_db, ip2str(ip,NULL), esc_username, rcode, unique_id, esc_message);
+
+	if( retcode != SQL_SUCCESS )
+		Sql_ShowDebug(sql_handle);
+}
+
+----------------------------------------------------------------------------------------------------------------------------
+Open ../src/login/login.c and in the function  do_final  change:
+
+	login_log(0, "login server", 100, "login server shutdown");
+
+===
+to:
+===
+
+	login_log(0, 0, "login server", 100, "login server shutdown");
+
+======================
+In the function  do_init  change:
+======================
+
+	login_log(0, "login server", 100, "login server started");
+
+===
+to:
+===
+
+	login_log(0, 0, "login server", 100, "login server started");
+
+----------------------------------------------------------------------------------------------------------------------------
+Open ../src/login/loginchrif.c and in the function  logchrif_parse_pincode_authfail change:
+
+login_log( host2ip(acc.last_ip), acc.userid, 100, "PIN Code check failed" );
+
+===
+to:
+===
+
+login_log(fd, host2ip(acc.last_ip), acc.userid, 100, "PIN Code check failed");
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Open ../src/login/ipban.c and after:
+
+#include "../common/timer.h"
+
+====
+add:
+====
+
+#include "../common/socket.h"
+#include <stdio.h>
+
+===============================
+add to the end of the file ../src/login/ipban.c
+===============================
+
+void gepard_update_last_unique_id(int account_id, uint32 unique_id)
+{
+	if (SQL_SUCCESS != Sql_Query(sql_handle, "UPDATE `login` SET `last_unique_id`= '%u' WHERE `account_id` = '%d'", unique_id, account_id))
+	{
+		Sql_ShowDebug(sql_handle);
+	}
+	else if (SQL_SUCCESS == Sql_NextRow(sql_handle))
+	{
+		Sql_ShowDebug(sql_handle);
+	}
+
+	Sql_FreeResult(sql_handle);
+}
+
+bool gepard_check_unique_id(int fd, uint32 unique_id)
+{
+	if (SQL_SUCCESS != Sql_Query(sql_handle, "SELECT `unban_time`, `reason` FROM `gepard_block` WHERE `unique_id` = '%u'", unique_id))
+	{
+		Sql_ShowDebug(sql_handle);
+		gepard_send_info(fd, GEPARD_INFO_BANNED, "Tell administrator about SQL problem.");
+	}
+	else if (SQL_SUCCESS == Sql_NextRow(sql_handle))
+	{
+		char* data;
+		struct tm unblock_tm;
+		time_t time_unban, time_server;
+	 	int year, month, day, hour, min, sec;
+		char reason_str[GEPARD_REASON_LENGTH];
+		char unban_time_str[GEPARD_TIME_STR_LENGTH];
+
+		memset((void*)&unblock_tm, 0, sizeof(unblock_tm));
+
+		Sql_GetData(sql_handle,  0, &data, NULL);
+		safestrncpy(unban_time_str, data, sizeof(unban_time_str));
+
+		sscanf(unban_time_str, "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &min, &sec);
+
+		unblock_tm.tm_year = year - 1900;
+		unblock_tm.tm_mon = month - 1;
+		unblock_tm.tm_mday = day;
+		unblock_tm.tm_hour = hour;
+		unblock_tm.tm_min = min;
+		unblock_tm.tm_sec = sec;
+
+		time_unban = mktime(&unblock_tm);
+		time(&time_server);
+
+		if (time_server <= time_unban)
+		{
+			char message_info[200];
+
+			Sql_GetData(sql_handle,  1, &data, NULL);
+			safestrncpy(reason_str, data, sizeof(reason_str));
+
+			safesnprintf(message_info, sizeof(message_info), "Unique ID has been banned!\r\rDate of unban:  %s\r\rUnique id: %u\r\rReason: %s", unban_time_str, unique_id, reason_str);
+
+			session[fd]->gepard_info.is_init_ack_received = false;
+
+			gepard_send_info(fd, GEPARD_INFO_BANNED, message_info);
+		}
+		else if (SQL_ERROR == Sql_Query(sql_handle, "DELETE FROM `gepard_block` WHERE `unique_id` = '%u'", unique_id))
+		{
+			Sql_ShowDebug(sql_handle);
+		}
+	}
+
+	Sql_FreeResult(sql_handle);
+
+	return false;
+}
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Open ../src/login/ipban.h and after:
+
+void ipban_final(void);
+
+====
+add:
+====
+
+bool gepard_check_unique_id(int fd, uint32 unique_id);
+void gepard_update_last_unique_id(int account_id, uint32 unique_id);
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Open ../src/char/char_mapif.c and in the function "chmapif_parse" after:
+
+	switch(RFIFOW(fd,0)){
+
+====
+add:
+====
+			case GEPARD_M2C_BLOCK_REQ: next=chmapif_parse_gepard_block(fd); break;
+			case GEPARD_M2C_UNBLOCK_REQ: next=chmapif_parse_gepard_unblock(fd); break;
+
+====================================
+add to the end of the file ../src/char/char_mapif.c :
+====================================
+
+int chmapif_parse_gepard_block(int fd)
+{
+	unsigned int unique_id;
+	char* sql_data;
+	char result_str[GEPARD_RESULT_STR_LENGTH];
+	char reason_str_esc[GEPARD_REASON_LENGTH*2+1];
+	char unban_time_str_esc[GEPARD_TIME_STR_LENGTH*2+1];
+	int initiator_aid = 0, violator_aid = 0, offset;
+	char violator_name_esc[NAME_LENGTH*2+1], initiator_name_esc[NAME_LENGTH*2+1];
+	const char* violator_name, *initiator_name, *reason_str, *unban_time_str;
+	unsigned int packet_len = (2 + 4 + 4 + 4 + NAME_LENGTH + NAME_LENGTH + GEPARD_TIME_STR_LENGTH + GEPARD_REASON_LENGTH);
+
+	safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: unkqnown");
+
+	if (RFIFOREST(fd) < packet_len)
+	{
+		return 0;
+	}
+
+	unique_id = RFIFOL(fd, 2);
+	violator_aid = RFIFOL(fd, 6);
+	initiator_aid = RFIFOL(fd, 10);
+	offset = (2 + 4 + 4 + 4);
+
+	unban_time_str = (char*)RFIFOP(fd,offset);
+	offset += GEPARD_TIME_STR_LENGTH;
+
+	reason_str = (char*)RFIFOP(fd,offset);
+	offset += GEPARD_REASON_LENGTH;
+
+	violator_name = (char*)RFIFOP(fd,offset);
+	offset += NAME_LENGTH;
+
+	initiator_name = (char*)RFIFOP(fd,offset);
+	offset += NAME_LENGTH;
+
+	while ("Gepard")
+	{
+		Sql_EscapeStringLen(sql_handle, violator_name_esc, violator_name, strnlen(violator_name, NAME_LENGTH));
+
+		if (violator_aid == 0 && *violator_name != '\0')
+		{
+			// Get violator's account ID
+			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `account_id` FROM `char` WHERE `name` = '%s'", violator_name_esc))
+			{
+				Sql_ShowDebug(sql_handle);
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				break;
+			}
+			else if (Sql_NumRows(sql_handle) == 0)
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: The player has not found.");
+				break;
+			}
+			else if (SQL_SUCCESS != Sql_NextRow(sql_handle))
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				Sql_ShowDebug(sql_handle);
+				break;
+			}
+
+			Sql_GetData(sql_handle, 0, &sql_data, NULL); 
+			violator_aid = atoi(sql_data);
+			Sql_FreeResult(sql_handle);
+		}
+
+		if (unique_id == 0)
+		{
+			if (violator_aid == 0)
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: unique_id and violator_aid == 0! ERROR");
+				break;
+			}
+
+			// Get violator's unique ID
+			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `last_unique_id` FROM `login` WHERE `account_id` = '%d'", violator_aid))
+			{
+				Sql_ShowDebug(sql_handle);
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				break;
+			}
+			else if (Sql_NumRows(sql_handle) == 0)
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: The account has not been found.");
+				break;
+			}
+			else if (SQL_SUCCESS != Sql_NextRow(sql_handle))
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				Sql_ShowDebug(sql_handle);
+				break;
+			}
+
+			Sql_GetData(sql_handle, 0, &sql_data, NULL); 
+			unique_id = strtoul(sql_data, NULL, 10);
+			Sql_FreeResult(sql_handle);
+		}
+
+		if (unique_id == 0)
+		{
+			safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: You can not block unique_id which equal 0.");
+			break;
+		}
+
+		if (violator_aid != 0)
+		{
+			if (SQL_ERROR == Sql_Query(sql_handle, "UPDATE `login` SET `blocked_unique_id` = '%u' WHERE `account_id` = '%d'", unique_id, violator_aid))
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				Sql_ShowDebug(sql_handle);
+				break;
+			}
+
+			Sql_FreeResult(sql_handle);
+		}
+
+		if (SQL_ERROR == Sql_Query(sql_handle, "SELECT * FROM `gepard_block` WHERE `unique_id` = '%u'", unique_id))
+		{
+			safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+			Sql_ShowDebug(sql_handle);
+			break;
+		}
+		else if (Sql_NumRows(sql_handle) > 0)
+		{
+			if (SQL_ERROR == Sql_Query(sql_handle, "DELETE FROM `gepard_block` WHERE `unique_id` = '%u'", unique_id))
+			{
+				Sql_ShowDebug(sql_handle);
+			}
+		}
+
+		Sql_EscapeStringLen(sql_handle, unban_time_str_esc, unban_time_str, strnlen(unban_time_str, GEPARD_TIME_STR_LENGTH));
+		Sql_EscapeStringLen(sql_handle, initiator_name_esc, initiator_name, strnlen(initiator_name, NAME_LENGTH));
+		Sql_EscapeStringLen(sql_handle, reason_str_esc, reason_str, strnlen(reason_str, GEPARD_REASON_LENGTH));
+
+		if (SQL_ERROR == Sql_Query(sql_handle, "INSERT INTO `gepard_block` (`unique_id`, `unban_time`, `reason`) VALUES ('%u', '%s', '%s')",
+			unique_id, unban_time_str_esc, reason_str_esc))
+		{
+			safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+			Sql_ShowDebug(sql_handle);
+			break;
+		}
+
+		if (SQL_ERROR == Sql_Query(sql_handle, "INSERT INTO `gepard_block_log` (`unique_id`,`block_time`,`unban_time`,`violator_name`,`violator_account_id`,`initiator_name`,`initiator_account_id`,`reason`)"
+			"VALUES ('%u', NOW(), '%s', '%s', '%u', '%s', '%u', '%s')",
+			unique_id, unban_time_str_esc, violator_name_esc, violator_aid, initiator_name_esc, initiator_aid, reason_str_esc))
+		{
+			safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+			Sql_ShowDebug(sql_handle);
+			break;
+		}
+
+		safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: Success!");
+
+		break;
+	}
+
+	Sql_FreeResult(sql_handle);
+
+	WFIFOHEAD(fd, 2 + 4 + 4 + 4 + GEPARD_TIME_STR_LENGTH + GEPARD_TIME_STR_LENGTH + GEPARD_RESULT_STR_LENGTH);
+	WFIFOW(fd, 0) = GEPARD_C2M_BLOCK_ACK;
+	WFIFOL(fd, 2) = unique_id;
+	WFIFOL(fd, 6) = violator_aid;
+	WFIFOL(fd,10) = initiator_aid;
+	offset = (2 + 4 + 4 + 4);
+
+	safestrncpy((char*)WFIFOP(fd, offset), (char*)RFIFOP(fd, offset), GEPARD_TIME_STR_LENGTH);
+	offset += GEPARD_TIME_STR_LENGTH;
+
+	safestrncpy((char*)WFIFOP(fd, offset), (char*)RFIFOP(fd, offset), GEPARD_REASON_LENGTH);
+	offset += GEPARD_REASON_LENGTH;
+
+	safestrncpy((char*)WFIFOP(fd, offset), result_str, GEPARD_RESULT_STR_LENGTH);
+	offset += GEPARD_RESULT_STR_LENGTH;
+
+	WFIFOSET(fd, offset);
+	RFIFOSKIP(fd, packet_len);
+
+	return 1;
+}
+
+int chmapif_parse_gepard_unblock(int fd)
+{
+	unsigned int unique_id;
+	char* sql_data;
+	char result_str[GEPARD_RESULT_STR_LENGTH];
+	int initiator_aid = 0, violator_aid = 0, offset;
+	char violator_name_esc[NAME_LENGTH*2+1];
+	char* violator_name;
+	unsigned int packet_len = (2 + 4 + 4 + 4 + NAME_LENGTH);
+
+	if (RFIFOREST(fd) < packet_len)
+	{
+		return 0;
+	}
+
+	unique_id = RFIFOL(fd, 2);
+	violator_aid = RFIFOL(fd, 6);
+	initiator_aid = RFIFOL(fd, 10);
+	offset = (2 + 4 + 4 + 4);
+
+	violator_name = (char*)RFIFOP(fd,offset);
+	offset += NAME_LENGTH;
+
+	while ("Gepard")
+	{
+		if (violator_aid == 0 && *violator_name != '\0')
+		{
+			Sql_EscapeStringLen(sql_handle, violator_name_esc, violator_name, strnlen(violator_name, NAME_LENGTH));
+			offset += NAME_LENGTH;
+
+			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `account_id` FROM `char` WHERE `name` = '%s'", violator_name))
+			{
+				Sql_ShowDebug(sql_handle);
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				break;
+			}
+			else if (Sql_NumRows(sql_handle) == 0)
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: The player has not found.");
+				break;
+			}
+			else if (SQL_SUCCESS != Sql_NextRow(sql_handle))
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				Sql_ShowDebug(sql_handle);
+				break;
+			}
+
+			Sql_GetData(sql_handle, 0, &sql_data, NULL); 
+			violator_aid = atoi(sql_data);
+			Sql_FreeResult(sql_handle);
+		}
+
+		if (violator_aid != 0)
+		{
+			if (SQL_ERROR == Sql_Query(sql_handle, "SELECT `blocked_unique_id` FROM `login` WHERE `account_id` = '%d'", violator_aid))
+			{
+				Sql_ShowDebug(sql_handle);
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				break;
+			}
+			else if (Sql_NumRows(sql_handle) == 0)
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: The account has not been found.");
+				break;
+			}
+			else if (SQL_SUCCESS != Sql_NextRow(sql_handle))
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+				Sql_ShowDebug(sql_handle);
+				Sql_FreeResult(sql_handle);
+				break;
+			}
+
+			Sql_GetData(sql_handle, 0, &sql_data, NULL); 
+			unique_id = strtoul(sql_data, NULL, 10);
+			Sql_FreeResult(sql_handle);
+
+			if (unique_id == 0)
+			{
+				safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: account don't have block information.");
+				break;
+			}
+		}
+
+		if (SQL_ERROR == Sql_Query(sql_handle, "DELETE FROM `gepard_block` WHERE `unique_id` = '%u'", unique_id))
+		{
+			safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: An error has been occurred. You should see console..");
+			Sql_ShowDebug(sql_handle);
+			Sql_FreeResult(sql_handle);
+			break;
+		}
+	
+		safesnprintf(result_str, GEPARD_RESULT_STR_LENGTH, "Result: Success!");
+
+		break;
+	}
+
+	WFIFOHEAD(fd, 2 + 4 + GEPARD_RESULT_STR_LENGTH);
+	WFIFOW(fd, 0) = GEPARD_C2M_UNBLOCK_ACK;
+	WFIFOL(fd, 2) = initiator_aid;
+	offset = 2 + 4;
+
+	safestrncpy((char*)WFIFOP(fd, offset), result_str, GEPARD_RESULT_STR_LENGTH);
+	offset += GEPARD_RESULT_STR_LENGTH;
+
+	WFIFOSET(fd, offset);
+	RFIFOSKIP(fd, packet_len);
+
+	return 1;
+}
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Open ../src/char/char_mapif.h and after:
+
+void do_final_chmapif(void);
+
+====
+add:
+====
+
+int chmapif_parse_gepard_block(int fd);
+int chmapif_parse_gepard_unblock(int fd);
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Open ../src/map/chrif.c and in the function "chrif_parse" after:
+
+	while ( RFIFOREST(fd) >= 2 ) {
+		cmd = RFIFOW(fd,0);
+
+====
+add:
+====
+
+		if (cmd == GEPARD_C2M_BLOCK_ACK)
+		{
+			if (chrif_gepard_ack_block(fd) == true)
+				continue;
+			else
+				return 0;
+		}
+		else if (cmd == GEPARD_C2M_UNBLOCK_ACK)
+		{
+			if (chrif_gepard_ack_unblock(fd) == true)
+				continue;
+			else
+				return 0;
+		}
+
+===============================
+add to the end of the file ../src/map/chrif.c :
+===============================
+
+int chrif_gepard_req_block(unsigned int unique_id, const char* violator_name, unsigned int violator_aid, const char* initiator_name, unsigned int initiator_aid, const char* unban_time_str, const char* reason_str)
+{
+	unsigned int offset;
+	char send_buffer[2 + 4 + 4 + 4 + GEPARD_TIME_STR_LENGTH + GEPARD_REASON_LENGTH + NAME_LENGTH + NAME_LENGTH];
+
+	chrif_check(-1);
+
+	memset(send_buffer, '\0', sizeof(send_buffer));
+
+	WBUFW(send_buffer, 0) = GEPARD_M2C_BLOCK_REQ;
+	WBUFL(send_buffer, 2) = unique_id;
+	WBUFL(send_buffer, 6) = violator_aid;
+	WBUFL(send_buffer,10) = initiator_aid;
+	offset = (2 + 4 + 4 + 4);
+
+	if (unban_time_str != NULL)
+		safestrncpy((char*)WBUFP(send_buffer, offset), unban_time_str, GEPARD_TIME_STR_LENGTH);
+	offset += GEPARD_TIME_STR_LENGTH;
+
+	if (reason_str != NULL)
+		safestrncpy((char*)WBUFP(send_buffer, offset), reason_str, GEPARD_REASON_LENGTH);
+	offset += GEPARD_REASON_LENGTH;
+
+	if (violator_name != NULL)
+		safestrncpy((char*)WBUFP(send_buffer, offset), violator_name, NAME_LENGTH);
+	offset += NAME_LENGTH;
+
+	if (initiator_name != NULL)
+		safestrncpy((char*)WBUFP(send_buffer, offset), initiator_name, NAME_LENGTH);
+	offset += NAME_LENGTH;
+
+	WFIFOHEAD(char_fd, offset);
+	memcpy((void*)WFIFOP(char_fd, 0), send_buffer, offset);
+	WFIFOSET(char_fd, offset);
+
+	return 0;
+}
+
+bool chrif_gepard_ack_block(int fd)
+{
+	struct map_session_data* sd;
+	int violator_aid, initiator_aid;
+	unsigned int unique_id, offset;
+	char reason_str[GEPARD_REASON_LENGTH];
+	char result_str[GEPARD_RESULT_STR_LENGTH];
+	char unban_time_str[GEPARD_TIME_STR_LENGTH];
+
+	unsigned int packet_len = (2 + 4 + 4 + 4 + GEPARD_TIME_STR_LENGTH + GEPARD_REASON_LENGTH + GEPARD_RESULT_STR_LENGTH);
+
+	if (RFIFOREST(fd) < packet_len)
+		return false;
+
+	unique_id = RFIFOL(fd, 2);
+	violator_aid = RFIFOL(fd, 6);
+	initiator_aid = RFIFOL(fd, 10);
+	offset = (2 + 4 + 4 + 4);
+
+	safestrncpy(unban_time_str, (char*)RFIFOP(fd, offset), GEPARD_TIME_STR_LENGTH);
+	offset += GEPARD_TIME_STR_LENGTH;
+
+	safestrncpy(reason_str, (char*)RFIFOP(fd, offset), GEPARD_REASON_LENGTH);
+	offset += GEPARD_REASON_LENGTH;
+
+	safestrncpy(result_str, (char*)RFIFOP(fd, offset), GEPARD_RESULT_STR_LENGTH);
+	offset += GEPARD_RESULT_STR_LENGTH;
+
+	if (violator_aid != 0 && (sd = map_id2sd(violator_aid)) != NULL)
+	{
+		char message_info[300];
+		struct s_mapiterator* iter;
+	
+		safesnprintf(message_info, 300, "Unique ID has been banned!\r\rDate of unban:  %s\r\rUnique id: %u\r\rReason: %s", unban_time_str, unique_id, reason_str);
+
+		iter = mapit_getallusers();
+
+		for (sd = (TBL_PC*)mapit_first(iter); mapit_exists(iter); sd = (TBL_PC*)mapit_next(iter))
+		{
+			if (session[sd->fd]->gepard_info.unique_id == unique_id)
+			{
+				gepard_send_info(sd->fd, GEPARD_INFO_BANNED, message_info);
+				session[sd->fd]->recv_crypt.pos_1 = rand() % 255;
+				session[sd->fd]->recv_crypt.pos_2 = rand() % 255;
+				session[sd->fd]->recv_crypt.pos_3 = rand() % 255;
+			}
+		}
+	
+		mapit_free(iter);
+	}
+
+	RFIFOSKIP(fd, offset);
+
+	if (initiator_aid != 0 && (sd = map_id2sd(initiator_aid)) != NULL)
+	{
+		clif_displaymessage(sd->fd, result_str);
+	}
+
+	return true;
+}
+
+int chrif_gepard_req_unblock(unsigned int unique_id, const char* violator_name, unsigned int violator_aid, unsigned int initiator_aid)
+{
+	unsigned int offset;
+	char send_buffer[2 + 4 + 4 + 4 + NAME_LENGTH];
+
+	chrif_check(-1);
+
+	memset(send_buffer, '\0', sizeof(send_buffer));
+
+	WBUFW(send_buffer, 0) = GEPARD_M2C_UNBLOCK_REQ;
+	WBUFL(send_buffer, 2) = unique_id;
+	WBUFL(send_buffer, 6) = violator_aid;
+	WBUFL(send_buffer,10) = initiator_aid;
+	offset = (2 + 4 + 4 + 4);
+
+	if (violator_name != NULL)
+		safestrncpy((char*)WBUFP(send_buffer, offset), violator_name, NAME_LENGTH);
+	offset += NAME_LENGTH;
+
+	WFIFOHEAD(char_fd, offset);
+	memcpy((void*)WFIFOP(char_fd, 0), send_buffer, offset);
+	WFIFOSET(char_fd, offset);
+
+	return 0;
+}
+
+bool chrif_gepard_ack_unblock(int fd)
+{
+	struct map_session_data* sd;
+	int initiator_aid, offset;
+	char result_str[GEPARD_RESULT_STR_LENGTH];
+	unsigned int packet_len = (2 + 4 + GEPARD_RESULT_STR_LENGTH);
+
+	if (RFIFOREST(fd) < packet_len)
+		return false;
+
+	initiator_aid = RFIFOL(fd, 2);
+	offset = 2 + 4;
+
+	safestrncpy(result_str, (char*)RFIFOP(fd, offset), GEPARD_RESULT_STR_LENGTH);
+	offset += GEPARD_RESULT_STR_LENGTH;
+
+	RFIFOSKIP(fd, offset);
+
+	if (initiator_aid != 0 && (sd = map_id2sd(initiator_aid)) != NULL)
+	{
+		clif_displaymessage(sd->fd, result_str);
+	}
+
+	return true;
+}
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Open ../src/map/chrif.h and after:
+
+int chrif_flush_fifo(void);
+
+====
+add:
+====
+
+int chrif_gepard_req_block(unsigned int unique_id, const char* violator_name, unsigned int violator_aid, const char* initiator_name, unsigned int initiator_aid, const char* unban_time_str, const char* reason_str);
+bool chrif_gepard_ack_block(int fd);
+int chrif_gepard_req_unblock(unsigned int unique_id, const char* violator_name, unsigned int violator_aid, unsigned int initiator_aid);
+bool chrif_gepard_ack_unblock(int fd);
+
+-----------------------------------------------------------------------------------------------------------------------------
+Open ../src/map/atcommand.ñ and before:
+
+/**
+ * Fills the reference of available commands in atcommand DBMap
+ **/
+#define ACMD_DEF(x) { #x, atcommand_ ## x, NULL, NULL }
+#define ACMD_DEF2(x2, x) { x2, atcommand_ ## x, NULL, NULL }
+
+====
+add:
+====
+
+ACMD_FUNC(gepard_block_nick)
+{
+	struct map_session_data* violator_sd;
+	time_t time_server;
+	unsigned int duration;
+	unsigned int violator_account_id = 0;
+	unsigned int violator_unique_id = 0;
+	char reason_str[GEPARD_REASON_LENGTH];
+	char unban_time_str[GEPARD_TIME_STR_LENGTH];
+	char violator_name[NAME_LENGTH];
+	char duration_type, *command_info = "Wrong input (usage: @gepard_block_nick <duration> <duration_type m/h/d> \"<char name>\" <reason>)";
+
+	nullpo_retr(-1, sd);
+
+	memset(atcmd_player_name, '\0', sizeof(atcmd_player_name));
+
+	if (!message || !*message || sscanf(message, "%u %c \"%23[^\"]\" %99[^\n]", &duration, &duration_type, violator_name, reason_str) < 4)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	time(&time_server);
+
+	switch (duration_type)
+	{
+		case 'm':
+			time_server += (duration * 60);
+		break;
+
+		case 'h':
+			time_server += (duration * 3600);
+		break;
+
+		case 'd':
+			time_server += (duration * 86400);
+		break;
+
+		default:
+			duration = 0;
+		break;
+	}
+
+	if (duration == 0)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	strftime(unban_time_str, sizeof(unban_time_str), "%Y-%m-%d %H:%M:%S", localtime(&time_server)); 
+
+	sprintf(atcmd_output, "Request: block by name - %s", violator_name);
+	clif_displaymessage(fd, atcmd_output);
+
+	violator_sd = map_nick2sd(violator_name);
+
+	if (violator_sd != NULL)
+	{
+		violator_account_id = violator_sd->status.account_id;
+		violator_unique_id = session[violator_sd->fd]->gepard_info.unique_id;
+	}
+
+	chrif_gepard_req_block(violator_unique_id, violator_name, violator_account_id, sd->status.name, sd->status.account_id, unban_time_str, reason_str);
+
+	return 0;
+}
+
+ACMD_FUNC(gepard_block_account_id)
+{
+	struct map_session_data* violator_sd;
+	time_t time_server;
+	unsigned int duration;
+	unsigned int violator_account_id = 0;
+	unsigned int violator_unique_id = 0;
+	char reason_str[GEPARD_REASON_LENGTH];
+	char unban_time_str[GEPARD_TIME_STR_LENGTH];
+	char duration_type, *command_info = "Wrong input (usage: @gepard_block_account_id <duration> <duration_type m/h/d> <account ID> <reason>)";
+
+	nullpo_retr(-1, sd);
+
+	memset(atcmd_player_name, '\0', sizeof(atcmd_player_name));
+
+	if (!message || !*message || sscanf(message, "%u %c %u %99[^\n]", &duration, &duration_type, &violator_account_id, reason_str) < 4)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	time(&time_server);
+
+	switch (duration_type)
+	{
+		case 'm':
+			time_server += (duration * 60);
+		break;
+
+		case 'h':
+			time_server += (duration * 3600);
+		break;
+
+		case 'd':
+			time_server += (duration * 86400);
+		break;
+
+		default:
+			duration = 0;
+		break;
+	}
+
+	if (duration == 0)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	strftime(unban_time_str, sizeof(unban_time_str), "%Y-%m-%d %H:%M:%S", localtime(&time_server)); 
+
+	sprintf(atcmd_output, "Request: block by account ID: %u", violator_account_id);
+	clif_displaymessage(fd, atcmd_output);
+
+	violator_sd = map_id2sd(violator_account_id);
+
+	if (violator_sd != NULL)
+	{
+		violator_account_id = violator_sd->status.account_id;
+		violator_unique_id = session[violator_sd->fd]->gepard_info.unique_id;
+	}
+
+	chrif_gepard_req_block(violator_unique_id, atcmd_player_name, violator_account_id, sd->status.name, sd->status.account_id, unban_time_str, reason_str);
+
+	return 0;
+}
+
+ACMD_FUNC(gepard_block_unique_id)
+{
+	time_t time_server;
+	unsigned int duration;
+	unsigned int violator_unique_id = 0;
+	char reason_str[GEPARD_REASON_LENGTH];
+	char unban_time_str[GEPARD_TIME_STR_LENGTH];
+	char duration_type, *command_info = "Wrong input (usage: @gepard_block_unique_id <duration> <duration_type m/h/d> <unique ID> <reason>)";
+
+	nullpo_retr(-1, sd);
+
+	memset(atcmd_player_name, '\0', sizeof(atcmd_player_name));
+
+	if (!message || !*message || sscanf(message, "%u %c %u %99[^\n]", &duration, &duration_type, &violator_unique_id, reason_str) < 4)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	time(&time_server);
+
+	switch (duration_type)
+	{
+		case 'm':
+			time_server += (duration * 60);
+		break;
+
+		case 'h':
+			time_server += (duration * 3600);
+		break;
+
+		case 'd':
+			time_server += (duration * 86400);
+		break;
+
+		default:
+			duration = 0;
+		break;
+	}
+
+	if (duration == 0)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	strftime(unban_time_str, sizeof(unban_time_str), "%Y-%m-%d %H:%M:%S", localtime(&time_server)); 
+
+	sprintf(atcmd_output, "Request: block by unqiue ID: %u", violator_unique_id);
+	clif_displaymessage(fd, atcmd_output);
+
+	chrif_gepard_req_block(violator_unique_id, NULL, 0, sd->status.name, sd->status.account_id, unban_time_str, reason_str);
+
+	return 0;
+}
+
+ACMD_FUNC(gepard_unblock_nick)
+{
+	char violator_name[NAME_LENGTH];
+	char* command_info = "Wrong input (usage: @gepard_unblock_nick <char name>)";
+
+	nullpo_retr(-1, sd);
+
+	if (!message || !*message || sscanf(message, "\"%23[^\"]\"[^\n]", violator_name) < 1)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	sprintf(atcmd_output, "Request: unblock by name - %s", violator_name);
+
+	clif_displaymessage(fd, atcmd_output);
+
+	chrif_gepard_req_unblock(0, violator_name, 0, sd->status.account_id);
+
+	return 0;
+}
+
+ACMD_FUNC(gepard_unblock_account_id)
+{
+	int violator_aid;
+	char* command_info = "Wrong input (usage: @gepard_unblock_account_id <account ID>)";
+
+	nullpo_retr(-1, sd);
+
+	memset(atcmd_player_name, '\0', sizeof(atcmd_player_name));
+
+	if (!message || !*message || sscanf(message, "%d", &violator_aid) < 1)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	sprintf(atcmd_output, "Request: unblock by account id - %d", violator_aid);
+
+	clif_displaymessage(fd, atcmd_output);
+
+	chrif_gepard_req_unblock(0, NULL, violator_aid, sd->status.account_id);
+
+	return 0;
+}
+
+ACMD_FUNC(gepard_unblock_unique_id)
+{
+	unsigned int violator_unique_id;
+	char* command_info = "Wrong input (usage: @gepard_unblock_unique_id <unique ID>)";
+
+	nullpo_retr(-1, sd);
+
+	if (!message || !*message || sscanf(message, "%u", &violator_unique_id) < 1)
+	{
+		clif_displaymessage(fd, command_info);
+		return -1;
+	}
+
+	sprintf(atcmd_output, "Request: unblock by unique id - %u", violator_unique_id);
+
+	clif_displaymessage(fd, atcmd_output);
+
+	chrif_gepard_req_unblock(violator_unique_id, NULL, 0, sd->status.account_id);
+
+	return 0;
+}
+
+ACMD_FUNC(set_allowed_gepard_version)
+{
+	FILE* fp;
+	unsigned int gepard_version;
+
+	nullpo_retr(-1, sd);
+
+	gepard_version = strtoul(message, NULL, 10);
+
+	if ((fp = fopen("conf/gepard_version.txt", "w+")) == NULL)
+	{
+		clif_displaymessage(fd, "Can not open conf/gepard_version.txt !");
+		return -1;
+	}
+
+	fprintf (fp, "%u", gepard_version);
+
+	fclose(fp);
+
+	min_allowed_gepard_version = gepard_version;
+
+	sprintf(atcmd_output, "Min allowed Gepard version was set to %u !", min_allowed_gepard_version);
+	clif_displaymessage(fd, atcmd_output);
+
+	return 0;
+}
+
+ACMD_FUNC(get_allowed_gepard_version)
+{
+	sprintf(atcmd_output, "Min allowed version of Gepard Shield is %u", min_allowed_gepard_version);
+	clif_displaymessage(fd, atcmd_output);
+
+	return 0;
+}
+
+ACMD_FUNC(set_allowed_gepard_grf_hash)
+{
+	FILE* fp;
+	unsigned int gepard_grf_hash;
+
+	nullpo_retr(-1, sd);
+
+	gepard_grf_hash = strtoul(message, NULL, 10);
+
+	if ((fp = fopen("conf/gepard_grf_hash.txt", "w+")) == NULL)
+	{
+		clif_displaymessage(fd, "Can not open conf/gepard_grf_hash.txt !");
+		return -1;
+	}
+
+	fprintf (fp, "%u", gepard_grf_hash);
+
+	fclose(fp);
+
+	allowed_gepard_grf_hash = gepard_grf_hash;
+
+	sprintf(atcmd_output, "Allowed Gepard GRF hash was set to %u !", allowed_gepard_grf_hash);
+	clif_displaymessage(fd, atcmd_output);
+
+	return 0;
+}
+
+ACMD_FUNC(get_allowed_gepard_grf_hash)
+{
+	sprintf(atcmd_output, "Allowed Gepard GRF hash is %u", allowed_gepard_grf_hash);
+	clif_displaymessage(fd, atcmd_output);
+
+	return 0;
+}
+
+====
+after:
+====
+
+	AtCommandInfo atcommand_base[] = {
+
+====
+add:
+====
+
+		ACMD_DEF(gepard_block_nick),
+		ACMD_DEF(gepard_block_account_id),
+		ACMD_DEF(gepard_block_unique_id),
+		ACMD_DEF(gepard_unblock_nick),
+		ACMD_DEF(gepard_unblock_account_id),
+		ACMD_DEF(gepard_unblock_unique_id),
+		ACMD_DEF(set_allowed_gepard_version),
+		ACMD_DEF(get_allowed_gepard_version),
+		ACMD_DEF(set_allowed_gepard_grf_hash),
+		ACMD_DEF(get_allowed_gepard_grf_hash),
+
+-----------------------------------------------------------------------------------------------------------------------------
+Open ../src/map/clif.h and before:
+
+#endif /* _CLIF_H_ */
+
+====
+add:
+====
+
+// Gepard Shield
+bool clif_gepard_process_packet(struct map_session_data* sd);
+// Gepard Shield
+
+-----------------------------------------------------------------------------------------------------------------------------
+Open ../src/map/clif.c and in the function "clif_parse_WantToConnection" before:
+
+	pc_setnewpc(sd, account_id, char_id, login_id1, client_tick, sex, fd);
+
+====
+add:
+====
+
+	// Gepard Shield
+	if (is_gepard_active)
+	{
+		gepard_init(fd, GEPARD_MAP);
+		session[fd]->gepard_info.sync_tick = gettick();
+	}
+	// Gepard Shield
+
+=======================
+in the function "clif_parse" after :
+=======================
+
+	// identify client's packet version
+	if (sd) {
+		packet_ver = sd->packet_ver;
+
+====
+add:
+====
+
+		// Gepard Shield
+		if (is_gepard_active == true && clif_gepard_process_packet(sd) == true)
+		{
+			return 0;
+		}
+		// Gepard Shield
+
+==============================
+Add to the end of the file ../src/map/clif.c :
+==============================
+
+int clif_gepard_timer_kick(int tid, unsigned int tick, int id, intptr_t data)
+{
+	struct map_session_data* sd = map_id2sd(id);
+
+	if (sd != NULL)
+	{
+		clif_GM_kick(NULL, sd);
+	}
+
+	return 0;
+}
+
+bool clif_gepard_process_packet(struct map_session_data* sd)
+{
+	int fd = sd->fd;
+	int packet_id = RFIFOW(fd, 0);
+	uint32 diff_time = gettick() - session[fd]->gepard_info.sync_tick;
+
+	if (diff_time > 40000)
+	{
+		clif_authfail_fd(sd->fd, 15);
+	}
+
+	if (packet_id <= MAX_PACKET_DB)
+	{
+		return gepard_process_packet(fd, session[fd]->rdata + session[fd]->rdata_pos, packet_db[sd->packet_ver][packet_id].len, &session[fd]->recv_crypt);
+	}
+
+	switch (packet_id)
+	{
+		case CS_GEPARD_INIT_ACK:
+		{
+			gepard_process_packet(fd, session[fd]->rdata + session[fd]->rdata_pos, 0, &session[fd]->recv_crypt);
+
+			if (session[fd]->gepard_info.is_init_ack_received == false)
+			{
+				return true;
+			}
+
+			if (session_isActive(fd) && pc_get_group_id(sd) != 99)
+			{
+				const uint16 packet_info_size = 6;
+
+				if (session[fd]->gepard_info.gepard_shield_version < min_allowed_gepard_version)
+				{
+					WFIFOHEAD(fd, packet_info_size);
+					WFIFOW(fd, 0) = SC_GEPARD_INFO;
+					WFIFOW(fd, 2) = packet_info_size;
+					WFIFOW(fd, 4) = GEPARD_INFO_OLD_VERSION;
+					WFIFOSET(fd, packet_info_size);
+
+					add_timer(gettick() + 5000, clif_gepard_timer_kick, sd->bl.id, 0);
+				}
+				else if (session[fd]->gepard_info.grf_hash_number != allowed_gepard_grf_hash)
+				{
+					WFIFOHEAD(fd, packet_info_size);
+					WFIFOW(fd, 0) = SC_GEPARD_INFO;
+					WFIFOW(fd, 2) = packet_info_size;
+					WFIFOW(fd, 4) = GEPARD_WRONG_GRF_HASH;
+					WFIFOSET(fd, packet_info_size);
+
+					add_timer(gettick() + 5000, clif_gepard_timer_kick, sd->bl.id, 0);
+				}	
+			}
+
+			return true;
+		}
+		break;
+	}
+
+	return gepard_process_packet(fd, session[fd]->rdata + session[fd]->rdata_pos, 0, &session[fd]->recv_crypt);
+}
+
+-----------------------------------------------------------------------------------------------------------------------------
+Open ../src/map/script.c and before:
+
+// declarations that were supposed to be exported from npc_chat.c
+#ifdef PCRE_SUPPORT
+
+====
+add:
+====
+
+BUILDIN_FUNC(get_unique_id)
+{
+	struct map_session_data* sd = script_rid2sd(st);
+
+	if (sd == NULL)
+	{
+		script_pushint(st, 0);
+		return SCRIPT_CMD_FAILURE;
+	}
+
+	script_pushint(st, session[sd->fd]->gepard_info.unique_id);
+
+	return SCRIPT_CMD_SUCCESS;
+}
+
+====
+after:
+====
+
+struct script_function buildin_func[] = {
+	// NPC interaction
+
+====
+add:
+====
+
+	BUILDIN_DEF(get_unique_id,""),
+
+-----------------------------------------------------------------------------------------------------------------------------
+Open ../src/config/core.h and change:
+
+#define PACKET_OBFUSCATION
+
+===
+to:
+===
+
+// #define PACKET_OBFUSCATION
+
+----------------------------------------------------------------------------------------------------------------------------
+You should create file gepard_shield.conf in the "conf" folder with content:
+
+// Gepard Shield configuration file
+
+// enable/disable shield
+
+gepard_shield_enabled: yes
+
+-----------------------------------------------------------------------------------------------------------------------------
+Current version of gepard module is 2017021601
+
+Players can't connect with lower version. It will be useful for updates.
+
+Admins with 99 GM can bypass this restriction.
+
+You can view and set it in the game by using user commands without restarting the server.
+
+Examples:
+
+@get_allowed_gepard_version
+
+@set_allowed_gepard_version 2017021601
+
+You should create file  "gepard_version.txt"  in the "conf" folder with content:
+
+2017021601
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+Hash of the "gepard.grf" is validated by map server.
+
+If game client has modified gepard.grf, Gepard will show a message and player will be disconnected.
+
+Admins with 99 GM can bypass this restriction.
+
+You can view and set it in the game by using user commands without restarting the server.
+
+Examples:
+
+@get_allowed_gepard_grf_hash
+
+@set_allowed_gepard_grf_hash 1608280899
+
+In the archive you can find "gepard.grf" for the test with hash: 1608280899
+
+You have to create own "gepard.grf" and calculate hash.
+
+For calculating hash for your "gepard.grf" you have to use: ../Tool/GRF Hashing Tool.exe
+
+You don't have to include "gepard.grf" to the DATA.INI. It will be loaded automatically after all GRFs in DATA.INI.
+
+You should create file  "gepard_grf_hash.txt"  in the "conf" folder with content:
+
+1608280899
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+DB modifications
+
+ALTER TABLE `loginlog` ADD `unique_id` INT(11) UNSIGNED NOT NULL DEFAULT '0' AFTER `rcode`;
+
+ALTER TABLE  `login` ADD  `last_unique_id` INT( 11 ) UNSIGNED NOT NULL DEFAULT  '0';
+
+ALTER TABLE  `login` ADD  `blocked_unique_id` INT( 11 ) UNSIGNED NOT NULL DEFAULT  '0';
+
+CREATE TABLE IF NOT EXISTS `gepard_block` (
+  `unique_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `unban_time` datetime NOT NULL,
+  `reason` varchar(50) NOT NULL,
+  UNIQUE KEY `unique_id` (`unique_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+
+CREATE TABLE IF NOT EXISTS `gepard_block_log` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `unique_id` int(11) unsigned NOT NULL DEFAULT '0',
+  `block_time` datetime NOT NULL,
+  `unban_time` datetime NOT NULL,
+  `violator_name` varchar(24) NOT NULL,
+  `violator_account_id` int(11) NOT NULL,
+  `initiator_name` varchar(24) NOT NULL,
+  `initiator_account_id` int(11) NOT NULL,
+  `reason` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1 AUTO_INCREMENT=1;
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Examples:
+
+m - minutes
+h - hours
+d - days
+
+usage: @gepard_block_nick <duration> <duration_type m/h/d> "<char name>" <reason>
+@gepard_block_nick 5 m "Functor" Cheater
+
+usage: @gepard_block_account_id <duration> <duration_type m/h/d> <account ID> <reason>
+@gepard_block_account_id 5 d 2000001 Cheater
+
+usage: @gepard_block_unique_id <duration> <duration_type m/h/d> <unique ID> <reason>
+@gepard_block_unique_id 7 h 2343543253 Cheater
+
+usage: @gepard_unblock_nick <char name>
+@gepard_unblock_nick "Functor"
+
+usage: @gepard_unblock_account_id <account ID>
+@gepard_unblock_account_id 2000001
+
+usage: @gepard_unblock_unique_id <unique ID>
+@gepard_unblock_unique_id 2343543253
+
+---------
+
+Script command:
+
+get_unique_id();
