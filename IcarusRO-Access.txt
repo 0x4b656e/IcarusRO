@@ -39,7 +39,7 @@ DATABASE: ragnarok
 WEBHOST INFO:
 ------------------------------------------------
 LOGIN: www.ro-vps.com:2082
-FTP IP: http://192.99.167.170:2082/
+FTP IP: http://192.99.167.170:2083/
 USER: ragnaica
 PASS: 04v3Tb5muR
 
